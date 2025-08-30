@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maintenance Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <div class="sidebar fixed md:relative w-64 bg-blue-800 text-white h-full z-10">
+            <div class="p-4 flex items-center justify-between border-b border-blue-700">
+                <h1 class="text-xl font-bold">Maintenance Tracker</h1>
+                <button id="sidebarToggle" class="md:hidden text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav class="p-4">
+                <ul>
+                    <li class="mb-2">
+                        <a href="#" class="flex items-center p-2 rounded hover:bg-blue-700 transition" id="dashboardLink">
+                            <i class="fas fa-tachometer-alt mr-3"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="#" class="flex items-center p-2 rounded bg-blue-700 hover:bg-blue-700 transition" id="recordsLink">
+                            <i class="fas fa-clipboard-list mr-3"></i>
+                            <span>Maintenance Records</span>
+                        </a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="#" class="flex items-center p-2 rounded hover:bg-blue-700 transition" id="newRecordLink">
+                            <i class="fas fa-plus-circle mr-3"></i>
+                            <span>New Record</span>
+                        </a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="#" class="flex items-center p-2 rounded hover:bg-blue-700 transition" id="exportLink">
+                            <i class="fas fa-file-export mr-3"></i>
+                            <span>Export Data</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 overflow-auto">
+            <!-- Mobile Header -->
+            <header class="bg-blue-800 text-white p-4 flex items-center justify-between md:hidden">
+                <h1 class="text-xl font-bold">Maintenance Tracker</h1>
+                <button id="mobileSidebarToggle" class="text-white">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </header>
+
+            <!-- Content Area -->
+            <main class="p-4 md:p-6">
+                <!-- Dashboard Section -->
+                <section id="dashboardSection" class="hidden">
+                    <div class="bg-white rounded-lg shadow p-6 mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6">Maintenance Dashboard</h2>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                            <div class="bg-blue-100 rounded-lg p-4 border-l-4 border-blue-500">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <p class="text-gray-600">Total Records</p>
+                                        <h3 class="text-2xl font-bold" id="totalRecords">0</h3>
+                                    </div>
+                                    <i class="fas fa-clipboard-list text-blue-500 text-3xl"></i>
+                                </div>
+                            </div>
+                            <div class="bg-green-100 rounded-lg p-4 border-l-4 border-green-500">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <p class="text-gray-600">No Downtime</p>
+                                        <h3 class="text-2xl font-bold" id="noDowntimeRecords">0</h3>
+                                    </div>
+                                    <i class="fas fa-check-circle text-green-500 text-3xl"></i>
+                                </div>
+                            </div>
+                            <div class="bg-red-100 rounded-lg p-4 border-l-4 border-red-500">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <p class="text-gray-600">Downtime Incidents</p>
+                                        <h3 class="text-2xl font-bold" id="downtimeRecords">0</h3>
+                                    </div>
+                                    <i class="fas fa-exclamation-triangle text-red-500 text-3xl"></i>
+                                </div>
+                            </div>
+                            <div class="bg-yellow-100 rounded-lg p-4 border-l-4 border-yellow-500">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <p class="text-gray-600">Avg. Duration</p>
+                                        <h3 class="text-2xl font-bold" id="avgDuration">0h 0m</h3>
+                                    </div>
+                                    <i class="fas fa-clock text-yellow-500 text-3xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="bg-white rounded-lg shadow p-4">
+                                <h3 class="font-bold text-lg mb-4">Recent Maintenance Activities</h3>
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full bg-white">
+                                        <thead>
+                                            <tr class="bg-gray-100">
+                                                <th class="py-2 px-4 text-left">Date</th>
+                                                <th class="py-2 px-4 text-left">PIC</th>
+                                                <th class="py-2 px-4 text-left">Duration</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="recentActivities">
+                                            <!-- Will be populated by JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-lg shadow p-4">
+                                <h3 class="font-bold text-lg mb-4">Downtime Analysis</h3>
+                                <canvas id="downtimeChart" height="200"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Records Section -->
+                <section id="recordsSection">
+                    <div class="bg-white rounded-lg shadow p-6 mb-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800">Maintenance Records</h2>
+                            <button id="addNewRecord" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center">
+                                <i class="fas fa-plus mr-2"></i> Add New
+                            </button>
+                        </div>
+
+                        <!-- Search and Filter -->
+                        <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-gray-700 mb-2">Date Range</label>
+                                    <div class="flex">
+                                        <input type="date" id="startDateFilter" class="border rounded-l px-3 py-2 w-full">
+                                        <input type="date" id="endDateFilter" class="border rounded-r px-3 py-2 w-full">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 mb-2">PIC Name</label>
+                                    <input type="text" id="picFilter" placeholder="Search by PIC" class="border rounded px-3 py-2 w-full">
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 mb-2">Downtime</label>
+                                    <select id="downtimeFilter" class="border rounded px-3 py-2 w-full">
+                                        <option value="">All</option>
+                                        <option value="yes">With Downtime</option>
+                                        <option value="no">No Downtime</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-4 flex justify-end">
+                                <button id="searchButton" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded mr-2">
+                                    <i class="fas fa-search mr-2"></i> Search
+                                </button>
+                                <button id="resetSearch" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">
+                                    <i class="fas fa-undo mr-2"></i> Reset
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Records Table -->
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full bg-white">
+                                <thead>
+                                    <tr class="bg-gray-100">
+                                        <th class="py-3 px-4 text-left">Date</th>
+                                        <th class="py-3 px-4 text-left">PIC</th>
+                                        <th class="py-3 px-4 text-left">Downtime</th>
+                                        <th class="py-3 px-4 text-left">Description</th>
+                                        <th class="py-3 px-4 text-left">Duration</th>
+                                        <th class="py-3 px-4 text-left">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recordsTableBody">
+                                    <!-- Will be populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- New Record Form Section -->
+                <section id="newRecordSection" class="hidden">
+                    <div class="bg-white rounded-lg shadow p-6 mb-6 fade-in">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800">New Maintenance Record</h2>
+                            <button id="cancelNewRecord" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">
+                                Cancel
+                            </button>
+                        </div>
+
+                        <form id="maintenanceForm" class="space-y-4">
+                            <input type="hidden" id="recordId">
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label for="reportDate" class="block text-gray-700 mb-2">Reporting Date*</label>
+                                    <input type="date" id="reportDate" required class="border rounded px-3 py-2 w-full">
+                                </div>
+                                <div>
+                                    <label for="picName" class="block text-gray-700 mb-2">PIC Name*</label>
+                                    <input type="text" id="picName" placeholder="Enter PIC name" required class="border rounded px-3 py-2 w-full">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-gray-700 mb-2">Downtime Occurred?*</label>
+                                <div class="flex space-x-4">
+                                    <label class="inline-flex items-center">
+                                        <input type="radio" name="downtime" value="yes" class="form-radio text-blue-600" required>
+                                        <span class="ml-2">Yes</span>
+                                    </label>
+                                    <label class="inline-flex items-center">
+                                        <input type="radio" name="downtime" value="no" class="form-radio text-blue-600">
+                                        <span class="ml-2">No</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label for="jobDescription" class="block text-gray-700 mb-2">Job Description*</label>
+                                <textarea id="jobDescription" rows="3" placeholder="Describe the maintenance work performed" required class="border rounded px-3 py-2 w-full"></textarea>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div>
+                                    <label for="startTime" class="block text-gray-700 mb-2">Start Time*</label>
+                                    <input type="time" id="startTime" required class="border rounded px-3 py-2 w-full">
+                                </div>
+                                <div>
+                                    <label for="endTime" class="block text-gray-700 mb-2">End Time*</label>
+                                    <input type="time" id="endTime" required class="border rounded px-3 py-2 w-full">
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 mb-2">Duration</label>
+                                    <div class="border rounded px-3 py-2 bg-gray-50">
+                                        <span id="durationDisplay">0h 0m</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-4 flex justify-end">
+                                <button type="button" id="resetForm" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded mr-2">
+                                    Reset
+                                </button>
+                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                                    Save Record
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- Export Section -->
+                <section id="exportSection" class="hidden">
+                    <div class="bg-white rounded-lg shadow p-6 mb-6 fade-in">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6">Export Maintenance Data</h2>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="bg-white border rounded-lg shadow p-6 text-center hover:shadow-md transition cursor-pointer" id="exportExcel">
+                                <div class="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-file-excel text-green-600 text-3xl"></i>
+                                </div>
+                                <h3 class="font-bold text-lg mb-2">Export to Excel</h3>
+                                <p class="text-gray-600">Download data in Excel format (XLSX)</p>
+                            </div>
+                            <div class="bg-white border rounded-lg shadow p-6 text-center hover:shadow-md transition cursor-pointer" id="exportPDF">
+                                <div class="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-file-pdf text-red-600 text-3xl"></i>
+                                </div>
+                                <h3 class="font-bold text-lg mb-2">Export to PDF</h3>
+                                <p class="text-gray-600">Download data in PDF format</p>
+                            </div>
+                            <div class="bg-white border rounded-lg shadow p-6 text-center hover:shadow-md transition cursor-pointer" id="exportCSV">
+                                <div class="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-file-csv text-blue-600 text-3xl"></i>
+                                </div>
+                                <h3 class="font-bold text-lg mb-2">Export to CSV</h3>
+                                <p class="text-gray-600">Download data in CSV format</p>
+                            </div>
+                        </div>
+
+                        <div class="mt-8 bg-gray-50 p-4 rounded-lg">
+                            <h3 class="font-bold text-lg mb-4">Custom Export Options</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-gray-700 mb-2">Date Range</label>
+                                    <div class="flex">
+                                        <input type="date" id="exportStartDate" class="border rounded-l px-3 py-2 w-full">
+                                        <input type="date" id="exportEndDate" class="border rounded-r px-3 py-2 w-full">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 mb-2">Fields to Include</label>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <label class="inline-flex items-center">
+                                            <input type="checkbox" checked class="form-checkbox text-blue-600" value="date">
+                                            <span class="ml-2">Date</span>
+                                        </label>
+                                        <label class="inline-flex items-center">
+                                            <input type="checkbox" checked class="form-checkbox text-blue-600" value="pic">
+                                            <span class="ml-2">PIC</span>
+                                        </label>
+                                        <label class="inline-flex items-center">
+                                            <input type="checkbox" checked class="form-checkbox text-blue-600" value="downtime">
+                                            <span class="ml-2">Downtime</span>
+                                        </label>
+                                        <label class="inline-flex items-center">
+                                            <input type="checkbox" checked class="form-checkbox text-blue-600" value="description">
+                                            <span class="ml-2">Description</span>
+                                        </label>
+                                        <label class="inline-flex items-center">
+                                            <input type="checkbox" checked class="form-checkbox text-blue-600" value="duration">
+                                            <span class="ml-2">Duration</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4 flex justify-end">
+                                <button id="customExport" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                                    <i class="fas fa-download mr-2"></i> Custom Export
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal for Viewing Description -->
+    <div id="descriptionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] overflow-auto">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 class="text-lg font-bold">Maintenance Details</h3>
+                <button id="closeDescriptionModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <p class="text-gray-600">Date:</p>
+                        <p class="font-medium" id="modalDate"></p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">PIC:</p>
+                        <p class="font-medium" id="modalPic"></p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Downtime:</p>
+                        <p class="font-medium" id="modalDowntime"></p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Duration:</p>
+                        <p class="font-medium" id="modalDuration"></p>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-gray-600">Description:</p>
+                    <p class="font-medium whitespace-pre-line" id="modalDescription"></p>
+                </div>
+            </div>
+            <div class="p-4 border-t flex justify-end">
+                <button id="closeModalBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg w-full max-w-md">
+            <div class="p-4 border-b">
+                <h3 class="text-lg font-bold">Confirm Action</h3>
+            </div>
+            <div class="p-4">
+                <p id="confirmMessage">Are you sure you want to delete this record?</p>
+            </div>
+            <div class="p-4 border-t flex justify-end space-x-2">
+                <button id="cancelConfirm" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">
+                    Cancel
+                </button>
+                <button id="confirmAction" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize the application when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Sample data for demonstration
+            let maintenanceRecords = JSON.parse(localStorage.getItem('maintenanceRecords')) || [
+                {
+                    id: 1,
+                    date: '2023-06-15',
+                    pic: 'John Doe',
+                    downtime: 'yes',
+                    description: 'Replaced faulty server components in data center. System was down for 2 hours during replacement.',
+                    startTime: '09:00',
+                    endTime: '12:30',
+                    duration: '3h 30m'
+                },
+                {
+                    id: 2,
+                    date: '2023-06-10',
+                    pic: 'Jane Smith',
+                    downtime: 'no',
+                    description: 'Routine maintenance on HVAC system in server room. Completed without any service interruption.',
+                    startTime: '14:00',
+                    endTime: '15:45',
+                    duration: '1h 45m'
+                },
+                {
+                    id: 3,
+                    date: '2023-06-05',
+                    pic: 'Mike Johnson',
+                    downtime: 'yes',
+                    description: 'Network switch upgrade. Required 45 minutes of downtime to replace core switch.',
+                    startTime: '22:00',
+                    endTime: '23:30',
+                    duration: '1h 30m'
+                }
+            ];
+
+            // Save to localStorage
+            function saveRecords() {
+                localStorage.setItem('maintenanceRecords', JSON.stringify(maintenanceRecords));
+                updateDashboard();
+                renderRecordsTable();
+            }
+
+            // Navigation functionality
+            const sections = {
+                dashboard: document.getElementById('dashboardSection'),
+                records: document.getElementById('recordsSection'),
+                newRecord: document.getElementById('newRecordSection'),
+                export: document.getElementById('exportSection')
+            };
+
+            const navLinks = {
+                dashboard: document.getElementById('dashboardLink'),
+                records: document.getElementById('recordsLink'),
+                newRecord: document.getElementById('newRecordLink'),
+                export: document.getElementById('exportLink')
+            };
+
+            function showSection(section) {
+                // Hide all sections first
+                Object.values(sections).forEach(sec => sec.classList.add('hidden'));
+                
+                // Show the selected section
+                sections[section].classList.remove('hidden');
+                
+                // Update active nav link
+                Object.values(navLinks).forEach(link => link.classList.remove('bg-blue-700'));
+                navLinks[section].classList.add('bg-blue-700');
+                
+                // If showing records, refresh the table
+                if (section === 'records') {
+                    renderRecordsTable();
+                }
+                
+                // If showing dashboard, update it
+                if (section === 'dashboard') {
+                    updateDashboard();
+                }
+            }
+
+            // Set up navigation event listeners
+            navLinks.dashboard.addEventListener('click', (e) => {
+                e.preventDefault();
+                showSection('dashboard');
+            });
+
+            navLinks.records.addEventListener('click', (e) => {
+                e.preventDefault();
+                showSection('records');
+            });
+
+            navLinks.newRecord.addEventListener('click', (e) => {
+                e.preventDefault();
+                showSection('newRecord');
+                resetForm();
+                document.getElementById('recordId').value = '';
+            });
+
+            navLinks.export.addEventListener('click', (e) => {
+                e.preventDefault();
+                showSection('export');
+            });
+
+            // Mobile sidebar toggle
+            const mobileSidebarToggle = document.getElementById('mobileSidebarToggle');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebar = document.querySelector('.sidebar');
+
+            mobileSidebarToggle.addEventListener('click', () => {
+                sidebar.classList.add('active');
+            });
+
+            sidebarToggle.addEventListener('click', () => {
+                sidebar.classList.remove('active');
+            });
+
+            // Start with records section visible
+            showSection('records');
+
+            // Form functionality
+            const form = document.getElementById('maintenanceForm');
+            const reportDate = document.getElementById('reportDate');
+            const picName = document.getElementById('picName');
+            const jobDescription = document.getElementById('jobDescription');
+            const startTime = document.getElementById('startTime');
+            const endTime = document.getElementById('endTime');
+            const durationDisplay = document.getElementById('durationDisplay');
+            const addNewRecordBtn = document.getElementById('addNewRecord');
+            const cancelNewRecordBtn = document.getElementById('cancelNewRecord');
+            const resetFormBtn = document.getElementById('resetForm');
+
+            // Set today's date as default
+            const today = new Date().toISOString().split('T')[0];
+            reportDate.value = today;
+
+            // Calculate duration when times change
+            startTime.addEventListener('change', calculateDuration);
+            endTime.addEventListener('change', calculateDuration);
+
+            function calculateDuration() {
+                if (startTime.value && endTime.value) {
+                    const start = new Date(`2000-01-01T${startTime.value}`);
+                    const end = new Date(`2000-01-01T${endTime.value}`);
+                    
+                    // Handle overnight duration (if end time is earlier than start time)
+                    let diffMs = end - start;
+                    if (diffMs < 0) {
+                        diffMs += 24 * 60 * 60 * 1000; // Add 24 hours
+                    }
+                    
+                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                    
+                    const duration = `${diffHours}h ${diffMinutes}m`;
+                    durationDisplay.textContent = duration;
+                }
+            }
+
+            // Form submission
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Get form values
+                const id = document.getElementById('recordId').value;
+                const date = reportDate.value;
+                const pic = picName.value;
+                const downtime = document.querySelector('input[name="downtime"]:checked').value;
+                const description = jobDescription.value;
+                const start = startTime.value;
+                const end = endTime.value;
+                const duration = durationDisplay.textContent;
+                
+                // Create or update record
+                if (id) {
+                    // Update existing record
+                    const index = maintenanceRecords.findIndex(record => record.id == id);
+                    if (index !== -1) {
+                        maintenanceRecords[index] = {
+                            id: parseInt(id),
+                            date,
+                            pic,
+                            downtime,
+                            description,
+                            startTime: start,
+                            endTime: end,
+                            duration
+                        };
+                    }
+                } else {
+                    // Add new record
+                    const newId = maintenanceRecords.length > 0 
+                        ? Math.max(...maintenanceRecords.map(r => r.id)) + 1 
+                        : 1;
+                    
+                    maintenanceRecords.push({
+                        id: newId,
+                        date,
+                        pic,
+                        downtime,
+                        description,
+                        startTime: start,
+                        endTime: end,
+                        duration
+                    });
+                }
+                
+                // Save and show records
+                saveRecords();
+                showSection('records');
+                resetForm();
+            });
+
+            // Reset form
+            function resetForm() {
+                form.reset();
+                durationDisplay.textContent = '0h 0m';
+                reportDate.value = today;
+            }
+
+            resetFormBtn.addEventListener('click', resetForm);
+
+            // Add new record button
+            addNewRecordBtn.addEventListener('click', function() {
+                showSection('newRecord');
+                resetForm();
+                document.getElementById('recordId').value = '';
+            });
+
+            // Cancel new record
+            cancelNewRecordBtn.addEventListener('click', function() {
+                showSection('records');
+                resetForm();
+            });
+
+            // Render records table
+            function renderRecordsTable(filteredRecords = null) {
+                const records = filteredRecords || maintenanceRecords;
+                const tbody = document.getElementById('recordsTableBody');
+                tbody.innerHTML = '';
+                
+                if (records.length === 0) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td colspan="6" class="py-4 text-center text-gray-500">No maintenance records found</td>`;
+                    tbody.appendChild(tr);
+                    return;
+                }
+                
+                // Sort by date (newest first)
+                const sortedRecords = [...records].sort((a, b) => new Date(b.date) - new Date(a.date));
+                
+                sortedRecords.forEach(record => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-b hover:bg-gray-50';
+                    
+                    // Format date
+                    const dateObj = new Date(record.date);
+                    const formattedDate = dateObj.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                    });
+                    
+                    // Truncate description for table display
+                    const shortDescription = record.description.length > 50 
+                        ? record.description.substring(0, 50) + '...' 
+                        : record.description;
+                    
+                    // Downtime badge
+                    const downtimeBadge = record.downtime === 'yes'
+                        ? '<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">Yes</span>'
+                        : '<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">No</span>';
+                    
+                    tr.innerHTML = `
+                        <td class="py-3 px-4">${formattedDate}</td>
+                        <td class="py-3 px-4">${record.pic}</td>
+                        <td class="py-3 px-4">${downtimeBadge}</td>
+                        <td class="py-3 px-4">
+                            <button class="text-blue-600 hover:text-blue-800 view-description" data-id="${record.id}">
+                                ${shortDescription}
+                            </button>
+                        </td>
+                        <td class="py-3 px-4">${record.duration}</td>
+                        <td class="py-3 px-4">
+                            <button class="text-blue-600 hover:text-blue-800 mr-2 edit-record" data-id="${record.id}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="text-red-600 hover:text-red-800 delete-record" data-id="${record.id}">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </td>
+                    `;
+                    
+                    tbody.appendChild(tr);
+                });
+                
+                // Add event listeners to the new buttons
+                document.querySelectorAll('.view-description').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const id = this.getAttribute('data-id');
+                        viewRecordDescription(id);
+                    });
+                });
+                
+                document.querySelectorAll('.edit-record').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const id = this.getAttribute('data-id');
+                        editRecord(id);
+                    });
+                });
+                
+                document.querySelectorAll('.delete-record').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const id = this.getAttribute('data-id');
+                        confirmDeleteRecord(id);
+                    });
+                });
+            }
+
+            // View record description in modal
+            function viewRecordDescription(id) {
+                const record = maintenanceRecords.find(r => r.id == id);
+                if (!record) return;
+                
+                // Format date
+                const dateObj = new Date(record.date);
+                const formattedDate = dateObj.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                
+                document.getElementById('modalDate').textContent = formattedDate;
+                document.getElementById('modalPic').textContent = record.pic;
+                document.getElementById('modalDowntime').textContent = record.downtime === 'yes' ? 'Yes' : 'No';
+                document.getElementById('modalDuration').textContent = record.duration;
+                document.getElementById('modalDescription').textContent = record.description;
+                
+                // Show modal
+                document.getElementById('descriptionModal').classList.remove('hidden');
+            }
+
+            // Edit record
+            function editRecord(id) {
+                const record = maintenanceRecords.find(r => r.id == id);
+                if (!record) return;
+                
+                document.getElementById('recordId').value = record.id;
+                document.getElementById('reportDate').value = record.date;
+                document.getElementById('picName').value = record.pic;
+                
+                // Set radio button
+                document.querySelector(`input[name="downtime"][value="${record.downtime}"]`).checked = true;
+                
+                document.getElementById('jobDescription').value = record.description;
+                document.getElementById('startTime').value = record.startTime;
+                document.getElementById('endTime').value = record.endTime;
+                document.getElementById('durationDisplay').textContent = record.duration;
+                
+                showSection('newRecord');
+            }
+
+            // Confirm delete record
+            function confirmDeleteRecord(id) {
+                const record = maintenanceRecords.find(r => r.id == id);
+                if (!record) return;
+                
+                // Format date
+                const dateObj = new Date(record.date);
+                const formattedDate = dateObj.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+                
+                document.getElementById('confirmMessage').textContent = 
+                    `Are you sure you want to delete the maintenance record from ${formattedDate} (PIC: ${record.pic})?`;
+                
+                const confirmModal = document.getElementById('confirmModal');
+                confirmModal.classList.remove('hidden');
+                
+                // Set up confirm action
+                const confirmAction = document.getElementById('confirmAction');
+                confirmAction.onclick = function() {
+                    deleteRecord(id);
+                    confirmModal.classList.add('hidden');
+                };
+                
+                // Cancel action
+                document.getElementById('cancelConfirm').onclick = function() {
+                    confirmModal.classList.add('hidden');
+                };
+            }
+
+            // Delete record
+            function deleteRecord(id) {
+                maintenanceRecords = maintenanceRecords.filter(record => record.id != id);
+                saveRecords();
+            }
+
+            // Close description modal
+            document.getElementById('closeDescriptionModal').addEventListener('click', function() {
+                document.getElementById('descriptionModal').classList.add('hidden');
+            });
+
+            document.getElementById('closeModalBtn').addEventListener('click', function() {
+                document.getElementById('descriptionModal').classList.add('hidden');
+            });
+
+            // Search functionality
+            const searchButton = document.getElementById('searchButton');
+            const resetSearch = document.getElementById('resetSearch');
+            const startDateFilter = document.getElementById('startDateFilter');
+            const endDateFilter = document.getElementById('endDateFilter');
+            const picFilter = document.getElementById('picFilter');
+            const downtimeFilter = document.getElementById('downtimeFilter');
+
+            searchButton.addEventListener('click', function() {
+                const startDate = startDateFilter.value;
+                const endDate = endDateFilter.value;
+                const pic = picFilter.value.toLowerCase();
+                const downtime = downtimeFilter.value;
+                
+                let filtered = maintenanceRecords;
+                
+                // Filter by date range
+                if (startDate || endDate) {
+                    const start = startDate ? new Date(startDate) : null;
+                    const end = endDate ? new Date(endDate) : null;
+                    
+                    filtered = filtered.filter(record => {
+                        const recordDate = new Date(record.date);
+                        
+                        if (start && end) {
+                            return recordDate >= start && recordDate <= end;
+                        } else if (start) {
+                            return recordDate >= start;
+                        } else if (end) {
+                            return recordDate <= end;
+                        }
+                        return true;
+                    });
+                }
+                
+                // Filter by PIC name
+                if (pic) {
+                    filtered = filtered.filter(record => 
+                        record.pic.toLowerCase().includes(pic)
+                    );
+                }
+                
+                // Filter by downtime
+                if (downtime) {
+                    filtered = filtered.filter(record => 
+                        record.downtime === downtime
+                    );
+                }
+                
+                renderRecordsTable(filtered);
+            });
+
+            resetSearch.addEventListener('click', function() {
+                startDateFilter.value = '';
+                endDateFilter.value = '';
+                picFilter.value = '';
+                downtimeFilter.value = '';
+                renderRecordsTable();
+            });
+
+            // Export functionality
+            document.getElementById('exportExcel').addEventListener('click', exportToExcel);
+            document.getElementById('exportPDF').addEventListener('click', exportToPDF);
+            document.getElementById('exportCSV').addEventListener('click', exportToCSV);
+            document.getElementById('customExport').addEventListener('click', customExport);
+
+            function exportToExcel() {
+                const data = prepareExportData();
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Maintenance Records");
+                XLSX.writeFile(wb, "maintenance_records.xlsx");
+            }
+
+            function exportToCSV() {
+                const data = prepareExportData();
+                const csv = convertToCSV(data);
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                saveAs(blob, "maintenance_records.csv");
+            }
+
+            function exportToPDF() {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // Add title
+                doc.setFontSize(18);
+                doc.text('Maintenance Records', 105, 15, { align: 'center' });
+                
+                // Add date
+                doc.setFontSize(10);
+                doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 22, { align: 'center' });
+                
+                // Prepare data
+                const data = prepareExportData();
+                
+                // Create table
+                const headers = [['Date', 'PIC', 'Downtime', 'Description', 'Duration']];
+                const rows = data.map(record => [
+                    record.date,
+                    record.pic,
+                    record.downtime === 'yes' ? 'Yes' : 'No',
+                    record.description,
+                    record.duration
+                ]);
+                
+                const tableData = [...headers, ...rows];
+                
+                // AutoTable plugin would be better here, but using basic table for simplicity
+                doc.autoTable({
+                    head: [tableData[0]],
+                    body: tableData.slice(1),
+                    startY: 30,
+                    styles: { fontSize: 8, cellPadding: 1 },
+                    columnStyles: {
+                        0: { cellWidth: 25 },
+                        1: { cellWidth: 25 },
+                        2: { cellWidth: 15 },
+                        3: { cellWidth: 80 },
+                        4: { cellWidth: 20 }
+                    }
+                });
+                
+                doc.save('maintenance_records.pdf');
+            }
+
+            function customExport() {
+                const format = prompt("Enter export format (excel, pdf, or csv):").toLowerCase();
+                
+                if (format === 'excel' || format === 'xlsx') {
+                    exportToExcel();
+                } else if (format === 'pdf') {
+                    exportToPDF();
+                } else if (format === 'csv') {
+                    exportToCSV();
+                } else {
+                    alert('Invalid format. Please enter excel, pdf, or csv.');
+                }
+            }
+
+            function prepareExportData() {
+                const startDate = document.getElementById('exportStartDate').value;
+                const endDate = document.getElementById('exportEndDate').value;
+                const fields = Array.from(document.querySelectorAll('#exportSection input[type="checkbox"]:checked'))
+                    .map(checkbox => checkbox.value);
+                
+                // Filter by date range if specified
+                let data = maintenanceRecords;
+                
+                if (startDate || endDate) {
+                    const start = startDate ? new Date(startDate) : null;
+                    const end = endDate ? new Date(endDate) : null;
+                    
+                    data = data.filter(record => {
+                        const recordDate = new Date(record.date);
+                        
+                        if (start && end) {
+                            return recordDate >= start && recordDate <= end;
+                        } else if (start) {
+                            return recordDate >= start;
+                        } else if (end) {
+                            return recordDate <= end;
+                        }
+                        return true;
+                    });
+                }
+                
+                // Select only the fields that are checked
+                return data.map(record => {
+                    const exportRecord = {};
+                    
+                    if (fields.includes('date')) exportRecord.date = record.date;
+                    if (fields.includes('pic')) exportRecord.pic = record.pic;
+                    if (fields.includes('downtime')) exportRecord.downtime = record.downtime;
+                    if (fields.includes('description')) exportRecord.description = record.description;
+                    if (fields.includes('duration')) exportRecord.duration = record.duration;
+                    
+                    return exportRecord;
+                });
+            }
+
+            function convertToCSV(data) {
+                if (data.length === 0) return '';
+                
+                const headers = Object.keys(data[0]);
+                const rows = data.map(record => 
+                    headers.map(fieldName => JSON.stringify(record[fieldName] || '')).join(',')
+                );
+                
+                return [headers.join(','), ...rows].join('\n');
+            }
+
+            // Dashboard functionality
+            function updateDashboard() {
+                const totalRecords = maintenanceRecords.length;
+                const downtimeRecords = maintenanceRecords.filter(r => r.downtime === 'yes').length;
+                const noDowntimeRecords = totalRecords - downtimeRecords;
+                
+                // Calculate average duration
+                let totalMinutes = 0;
+                maintenanceRecords.forEach(record => {
+                    const [hours, minutes] = record.duration.split('h ').map(part => parseInt(part));
+                    totalMinutes += hours * 60 + (minutes || 0);
+                });
+                
+                const avgMinutes = totalRecords > 0 ? Math.round(totalMinutes / totalRecords) : 0;
+                const avgHours = Math.floor(avgMinutes / 60);
+                const avgMins = avgMinutes % 60;
+                const avgDuration = `${avgHours}h ${avgMins}m`;
+                
+                // Update dashboard numbers
+                document.getElementById('totalRecords').textContent = totalRecords;
+                document.getElementById('downtimeRecords').textContent = downtimeRecords;
+                document.getElementById('noDowntimeRecords').textContent = noDowntimeRecords;
+                document.getElementById('avgDuration').textContent = avgDuration;
+                
+                // Update recent activities
+                const recentActivities = document.getElementById('recentActivities');
+                recentActivities.innerHTML = '';
+                
+                // Sort by date (newest first) and take top 5
+                const sortedRecords = [...maintenanceRecords]
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .slice(0, 5);
+                
+                if (sortedRecords.length === 0) {
+                    recentActivities.innerHTML = '<tr><td colspan="3" class="py-2 text-center text-gray-500">No recent activities</td></tr>';
+                    return;
+                }
+                
+                sortedRecords.forEach(record => {
+                    const tr = document.createElement('tr');
+                    const dateObj = new Date(record.date);
+                    const formattedDate = dateObj.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric'
+                    });
+                    
+                    tr.innerHTML = `
+                        <td class="py-2 px-4">${formattedDate}</td>
+                        <td class="py-2 px-4">${record.pic}</td>
+                        <td class="py-2 px-4">${record.duration}</td>
+                    `;
+                    recentActivities.appendChild(tr);
+                });
+                
+                // Update chart if Chart.js is available
+                if (typeof Chart !== 'undefined') {
+                    updateDowntimeChart();
+                }
+            }
+
+            function updateDowntimeChart() {
+                const ctx = document.getElementById('downtimeChart').getContext('2d');
+                
+                // Group by month
+                const monthlyData = {};
+                maintenanceRecords.forEach(record => {
+                    const date = new Date(record.date);
+                    const monthYear = `${date.getFullYear()}-${date.getMonth() + 1}`;
+                    
+                    if (!monthlyData[monthYear]) {
+                        monthlyData[monthYear] = { downtime: 0, noDowntime: 0 };
+                    }
+                    
+                    if (record.downtime === 'yes') {
+                        monthlyData[monthYear].downtime++;
+                    } else {
+                        monthlyData[monthYear].noDowntime++;
+                    }
+                });
+                
+                // Sort months chronologically
+                const sortedMonths = Object.keys(monthlyData).sort();
+                
+                const labels = sortedMonths.map(month => {
+                    const [year, monthNum] = month.split('-');
+                    return new Date(year, monthNum - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                });
+                
+                const downtimeCounts = sortedMonths.map(month => monthlyData[month].downtime);
+                const noDowntimeCounts = sortedMonths.map(month => monthlyData[month].noDowntime);
+                
+                // Destroy previous chart if it exists
+                if (window.downtimeChartInstance) {
+                    window.downtimeChartInstance.destroy();
+                }
+                
+                window.downtimeChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Downtime',
+                                data: downtimeCounts,
+                                backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                                borderColor: 'rgba(239, 68, 68, 1)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'No Downtime',
+                                data: noDowntimeCounts,
+                                backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                                borderColor: 'rgba(16, 185, 129, 1)',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: {
+                                stacked: true,
+                            },
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                precision: 0
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Initialize dashboard
+            updateDashboard();
+            
+            // Load Chart.js if not already loaded
+            if (typeof Chart === 'undefined') {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+                script.onload = updateDowntimeChart;
+                document.head.appendChild(script);
+            }
+        });
+    </script>
+</body>
+</html>
